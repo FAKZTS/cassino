@@ -1,0 +1,282 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo de Usuário
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  name              String?
+  phone             String?
+  cpf               String?   @unique
+  isKycVerified     Boolean   @default(false)
+  isAdmin           Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  
+  // Relacionamentos
+  wallet            Wallet?
+  transactions      Transaction[]
+  bets              Bet[]
+  bonuses           Bonus[]
+  dailyBonusClaims  DailyBonusClaim[]
+  referralCode      ReferralCode?
+  referredBy        String?
+  
+  // Dados adicionais para KYC
+  address           Address?
+  documents         Document[]
+}
+
+// Carteira do usuário
+model Wallet {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  balance       Float     @default(0)
+  lockedBalance Float     @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relacionamentos
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Transações financeiras
+model Transaction {
+  id            String          @id @default(uuid())
+  userId        String
+  amount        Float
+  type          TransactionType
+  status        TransactionStatus
+  paymentMethod String?
+  paymentId     String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  // Relacionamentos
+  user          User            @relation(fields: [userId], references: [id])
+}
+
+enum TransactionType {
+  DEPOSIT
+  WITHDRAWAL
+  BET
+  WIN
+  BONUS
+  AFFILIATE_COMMISSION
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+// Apostas dos usuários
+model Bet {
+  id            String    @id @default(uuid())
+  userId        String
+  gameId        String
+  amount        Float
+  multiplier    Float?
+  result        Float?
+  isWin         Boolean
+  createdAt     DateTime  @default(now())
+  
+  // Relacionamentos
+  user          User      @relation(fields: [userId], references: [id])
+  game          Game      @relation(fields: [gameId], references: [id])
+}
+
+// Jogos disponíveis
+model Game {
+  id            String    @id @default(uuid())
+  name          String
+  type          GameType
+  description   String?
+  imageUrl      String?
+  isActive      Boolean   @default(true)
+  rtp           Float     @default(0.95) // Return to Player
+  minBet        Float     @default(1)
+  maxBet        Float     @default(1000)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relacionamentos
+  bets          Bet[]
+  tournaments   TournamentGame[]
+}
+
+enum GameType {
+  SLOT
+  TIGER
+  ROULETTE
+  CRASH
+  DICE
+  CARD
+}
+
+// Sistema de bônus
+model Bonus {
+  id            String    @id @default(uuid())
+  userId        String
+  amount        Float
+  type          BonusType
+  expiresAt     DateTime?
+  isUsed        Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  
+  // Relacionamentos
+  user          User      @relation(fields: [userId], references: [id])
+}
+
+enum BonusType {
+  WELCOME
+  DEPOSIT
+  DAILY
+  TOURNAMENT
+  REFERRAL
+}
+
+// Bônus diário
+model DailyBonus {
+  id            String            @id @default(uuid())
+  day           Int               @unique
+  amount        Float
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  
+  // Relacionamentos
+  claims        DailyBonusClaim[]
+}
+
+model DailyBonusClaim {
+  id            String      @id @default(uuid())
+  userId        String
+  dailyBonusId  String
+  createdAt     DateTime    @default(now())
+  
+  // Relacionamentos
+  user          User        @relation(fields: [userId], references: [id])
+  dailyBonus    DailyBonus  @relation(fields: [dailyBonusId], references: [id])
+  
+  @@unique([userId, dailyBonusId])
+}
+
+// Sistema de afiliados
+model ReferralCode {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  code          String    @unique
+  commissionRate Float     @default(0.1) // 10%
+  createdAt     DateTime  @default(now())
+  
+  // Relacionamentos
+  user          User      @relation(fields: [userId], references: [id])
+}
+
+// Torneios
+model Tournament {
+  id            String            @id @default(uuid())
+  name          String
+  description   String?
+  startDate     DateTime
+  endDate       DateTime
+  prizePool     Float
+  isActive      Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  
+  // Relacionamentos
+  games         TournamentGame[]
+  participants  TournamentParticipant[]
+}
+
+model TournamentGame {
+  tournamentId  String
+  gameId        String
+  
+  // Relacionamentos
+  tournament    Tournament @relation(fields: [tournamentId], references: [id])
+  game          Game       @relation(fields: [gameId], references: [id])
+  
+  @@id([tournamentId, gameId])
+}
+
+model TournamentParticipant {
+  tournamentId  String
+  userId        String
+  points        Float      @default(0)
+  rank          Int?
+  prize         Float?
+  
+  // Relacionamentos
+  tournament    Tournament @relation(fields: [tournamentId], references: [id])
+  
+  @@id([tournamentId, userId])
+}
+
+// KYC - Know Your Customer
+model Address {
+  id            String    @id @default(uuid())
+  userId        String    @unique
+  street        String
+  number        String
+  complement    String?
+  district      String
+  city          String
+  state         String
+  country       String
+  zipCode       String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relacionamentos
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Document {
+  id            String          @id @default(uuid())
+  userId        String
+  type          DocumentType
+  number        String
+  imageUrl      String
+  status        VerificationStatus @default(PENDING)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  
+  // Relacionamentos
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum DocumentType {
+  ID_CARD
+  PASSPORT
+  DRIVERS_LICENSE
+  PROOF_OF_RESIDENCE
+  SELFIE
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Configurações do sistema
+model Setting {
+  id            String    @id @default(uuid())
+  key           String    @unique
+  value         String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}

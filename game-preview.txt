@@ -1,0 +1,35 @@
+// src/components/games/GamePreview.tsx
+
+import Link from 'next/link';
+
+interface GamePreviewProps {
+  id: string;
+  name: string;
+  imageUrl: string;
+}
+
+export const GamePreview: React.FC<GamePreviewProps> = ({ id, name, imageUrl }) => {
+  return (
+    <Link href={`/games/${id}`}>
+      <div className="bg-gray-800 rounded-lg overflow-hidden transition-transform hover:scale-105 hover:shadow-lg">
+        <div className="aspect-[4/3] bg-gray-700 relative">
+          <img
+            src={imageUrl}
+            alt={name}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity flex items-end">
+            <div className="p-4 w-full">
+              <button className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm py-1 px-3 rounded-md w-full">
+                Jogar Agora
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="p-3">
+          <h3 className="font-medium text-white truncate">{name}</h3>
+        </div>
+      </div>
+    </Link>
+  );
+};
